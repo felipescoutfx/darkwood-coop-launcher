@@ -160,7 +160,7 @@ $btn1.Add_Click({
         Set-Status "Baixando mod..."
         Invoke-WebRequest -Uri "$RepoRaw/mod/DarkwoodCoopOnline.dll" -OutFile (Join-Path $path "BepInEx\plugins\DarkwoodCoopOnline.dll")
         Write-BepInExConfig -darkwoodPath $path -peerId $txtPeer.Text.Trim()
-        Set-Status "Instalado! Agora clique em 'Baixar save inicial' e depois 'Jogar'."
+        Set-Status "Instalado! Agora clique em 'Sincronizar save' e depois 'Jogar'."
     } catch {
         Set-Status "Erro: $($_.Exception.Message)"
     }
@@ -168,25 +168,25 @@ $btn1.Add_Click({
 $form.Controls.Add($btn1)
 $y += 40
 
-# 2) Baixar save inicial
+# 2) Sincronizar save (mais recente do host)
 $btn2 = New-Object System.Windows.Forms.Button
-$btn2.Text = "2) Baixar save inicial (SOBRESCREVE seu save atual!)"
+$btn2.Text = "2) Sincronizar save (baixa o mais recente do host)"
 $btn2.Location = New-Object System.Drawing.Point(15, $y)
 $btn2.Size = New-Object System.Drawing.Size(480, 34)
 $btn2.Add_Click({
     $confirm = [System.Windows.Forms.MessageBox]::Show(
-        "Isso vai SUBSTITUIR seu save local do Darkwood pelo save compartilhado. Continuar?",
+        "Isso vai SUBSTITUIR seu save local do Darkwood pelo save mais recente compartilhado (do host). Continuar?",
         "Confirmar", "YesNo", "Warning")
     if ($confirm -ne "Yes") { return }
     try {
-        Set-Status "Baixando save..."
-        $zip = Join-Path $env:TEMP "save-initial.zip"
-        Invoke-WebRequest -Uri "$RepoRaw/save-initial.zip" -OutFile $zip
+        Set-Status "Baixando save mais recente..."
+        $zip = Join-Path $env:TEMP "save-latest.zip"
+        Invoke-WebRequest -Uri "$RepoRaw/save-latest.zip" -OutFile $zip
         $saveRoot = Join-Path $env:USERPROFILE "AppData\LocalLow\Acid Wizard Studio\Darkwood"
         New-Item -ItemType Directory -Force -Path $saveRoot | Out-Null
         Set-Status "Extraindo save..."
         Expand-Archive -Path $zip -DestinationPath $saveRoot -Force
-        Set-Status "Save instalado."
+        Set-Status "Save sincronizado."
     } catch {
         Set-Status "Erro: $($_.Exception.Message)"
     }
