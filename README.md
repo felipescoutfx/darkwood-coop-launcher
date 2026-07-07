@@ -46,3 +46,10 @@ descartar seu progresso solo na próxima vez que clicar "Sincronizar save".
   **ainda NÃO sincronizam ao vivo** (podem divergir mesmo jogando juntos, não é bug):
   clima, hora do dia, eventos noturnos, flags de progressão de história. É trabalho futuro
   do mod (M5), não uma falha do save.
+- **"Sincronizar save" copia o save INTEIRO do host, inclusive o inventário/personagem dele.**
+  O Darkwood nativo só guarda 1 personagem por save — ainda não existe save de personagem
+  separado por jogador (planejado, não implementado). Na prática: toda vez que você clicar
+  "Sincronizar save", seu inventário/equipamento vira uma cópia do que o HOST tinha salvo
+  naquele momento, não preserva o que você pegou/equipou sozinha da sessão anterior. Não é
+  bug — é limitação conhecida, aceita por enquanto pra focar em achar bugs de sincronização
+  (portas, containers, etc.), não de progressão de personagem.
