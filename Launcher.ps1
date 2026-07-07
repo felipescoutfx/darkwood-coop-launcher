@@ -112,7 +112,8 @@ $form.Controls.Add($txtPath)
 
 $btnBrowse = New-Object System.Windows.Forms.Button
 $btnBrowse.Text = "..."
-$btnBrowse.Location = New-Object System.Drawing.Point(415, $y - 1)
+$browseY = $y - 1
+$btnBrowse.Location = New-Object System.Drawing.Point(415, $browseY)
 $btnBrowse.Size = New-Object System.Drawing.Size(80, 26)
 $btnBrowse.Add_Click({
     $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
