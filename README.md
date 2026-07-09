@@ -1,61 +1,48 @@
 # Darkwood Co-op — Launcher
 
-Instalador/atualizador do mod de co-op online do Darkwood (dev/teste entre 2 amigos).
+Instalador/atualizador do mod de co-op online do Darkwood (dev/teste entre amigos).
 
-## Como usar
+## Primeira vez
 
-1. Baixe este repositório (botão verde "Code" → "Download ZIP") e extraia em qualquer pasta.
+1. Baixe este repositório (botão verde **Code → Download ZIP**) e extraia em qualquer pasta.
 2. Abra **"Iniciar Launcher.bat"** (duplo clique).
-3. No campo "SteamID64 do HOST", confirme que está com o ID do host (já vem preenchido).
-4. Clique **1) Instalar BepInEx + Mod** (só na primeira vez).
-5. Clique **2) Puxar save do host AGORA** (o host precisa já estar com o Darkwood aberto —
-   ver detalhes abaixo). Se o host ainda não abriu o jogo, use o **3) Sincronizar save**
-   (método antigo, sempre funciona) no lugar.
-6. Clique **5) Jogar**. Quando o Darkwood abrir, escolha o save recebido na tela de perfis
-   (se usou o botão 2, é sempre o mais recente/número mais alto) e aperte **F8** dentro do
-   jogo (você entra como cliente). O host aperta F7 do lado dele.
+3. Confira a **Pasta do Darkwood** no topo (o launcher tenta achar sozinho).
+4. Na aba **Principal**, clique **Instalar BepInEx + Mod**.
+5. Clique **Jogar**.
 
-## Antes de CADA sessão nova
+**Host e cliente usam o mesmo launcher** — os dois instalam o mod do mesmo jeito.
 
-Sempre que forem jogar de novo (não só na primeira vez):
+## Como jogar juntos (fluxo novo, por convite da Steam)
 
-1. Rode o launcher e clique **2) Puxar save do host AGORA** de novo (host com o jogo já
-   aberto) — isso te dá um save NOVO a cada vez, sem sobrescrever os antigos.
-2. Se o mod tiver sido atualizado (bug corrigido), clique também **4) Sincronizar mod**.
-3. Clique **5) Jogar** e escolha o save mais recente na tela de perfis.
+- **HOST:** abre o jogo, carrega o save, aperta **F7** (hospedar). Depois convida o amigo
+  pela **lista de amigos da Steam** (botão "Entrar no jogo" / "Convidar para o jogo").
+- **CLIENTE:** clica em **"Entrar no jogo"** na Steam. **Não precisa fazer mais nada** — o
+  mod baixa o save do host, carrega sozinho e conecta automaticamente.
 
-## O que cada botão faz
+O save do host é gravado como um **save novo** na sua lista de perfis (não apaga os seus).
+Cada host ganha um slot fixo — reconectar no mesmo host sempre reusa o mesmo slot.
 
-- **1) Instalar BepInEx + Mod**: baixa o runtime do BepInEx + o plugin do mod, extrai na
-  pasta do jogo, e escreve a configuração (`Mode=Steam`, `PeerSteamId64`).
-- **2) Puxar save do host AGORA (P2P)**: NOVO — conecta direto no host pela Steam (sem
-  precisar abrir o Darkwood ainda) e traz o save mais recente dele, gravando como um save
-  NOVO na sua lista de perfis (não sobrescreve nada seu). **Requisito: o host precisa já
-  estar com o Darkwood aberto** (o save só existe carregado na memória enquanto ele está
-  jogando). Depois de terminar, escolha esse save manualmente na tela de perfis do jogo —
-  nada é carregado automaticamente.
-- **3) Sincronizar save (método antigo)**: baixa um ZIP fixo do save mais recente que o
-  host publicou manualmente, SOBRESCREVENDO o seu local — use se o botão 2 não funcionar
-  (por exemplo, o host ainda não abriu o jogo).
-- **4) Sincronizar mod**: baixa só a DLL mais nova do mod (não mexe no save).
-- **5) Jogar**: abre o Darkwood pela Steam.
+## Atualização do mod
 
-## Limitações atuais (é mod em desenvolvimento)
+Ao abrir o launcher, ele avisa (em laranja, na aba Principal) se tem uma **versão nova do
+mod** publicada. Se avisar, clique **Atualizar mod**.
 
-- Sem lobby por convite da Steam ainda — a conexão é P2P direto por SteamID64 (mas usa o
-  relay da própria Steam, não precisa abrir porta nem VPN).
-- Depois de conectar, cada um ainda aperta F7 (host) ou F8 (cliente) manualmente dentro do
-  jogo.
-- **O save só sincroniza ENTRE sessões (arquivo compartilhado), não durante a partida.**
-  Coisas que JÁ sincronizam ao vivo enquanto jogam juntos: posição, inimigos, portas,
-  móveis, containers (baú/guarda-roupa/corpo), itens largados, armadilhas. Coisas que
-  **ainda NÃO sincronizam ao vivo** (podem divergir mesmo jogando juntos, não é bug):
-  clima, hora do dia, eventos noturnos, flags de progressão de história. É trabalho futuro
-  do mod (M5), não uma falha do save.
-- **"Sincronizar save" copia o save INTEIRO do host, inclusive o inventário/personagem dele.**
-  O Darkwood nativo só guarda 1 personagem por save — ainda não existe save de personagem
-  separado por jogador (planejado, não implementado). Na prática: toda vez que você clicar
-  "Sincronizar save", seu inventário/equipamento vira uma cópia do que o HOST tinha salvo
-  naquele momento, não preserva o que você pegou/equipou sozinha da sessão anterior. Não é
-  bug — é limitação conhecida, aceita por enquanto pra focar em achar bugs de sincronização
-  (portas, containers, etc.), não de progressão de personagem.
+## Aba Avançado (só se precisar)
+
+- **SteamID64 do host** + **Puxar save do host AGORA (P2P)**: baixa o save do host ANTES de
+  abrir o jogo (o host precisa estar com o Darkwood aberto). Útil se não quiser usar o
+  convite da Steam.
+- **Sincronizar save (método antigo)**: baixa um save publicado manualmente no repo,
+  SOBRESCREVENDO o seu. Só use se os outros métodos não servirem.
+- **Enviar log pro desenvolvedor**: se algo der errado, este botão sobe o log do jogo e gera
+  um **link** (copiado automaticamente). Mande esse link pro desenvolvedor pra ele ver o que
+  aconteceu.
+
+## Limitações atuais (mod em desenvolvimento)
+
+- O host precisa apertar **F7** pra hospedar (decisão de design — o host controla quando
+  abre pra co-op).
+- Clima, hora do dia, eventos noturnos e flags de história ainda podem divergir durante a
+  partida (trabalho futuro). O que já sincroniza ao vivo: posição, inimigos, portas, móveis,
+  containers, itens largados, armadilhas, estado de "caído"/reanimar.
+- Save de personagem por jogador (inventário/vida por SteamID) é novo e pouco testado.

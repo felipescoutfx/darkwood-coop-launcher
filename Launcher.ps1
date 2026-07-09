@@ -1,21 +1,20 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $RepoRaw = "https://raw.githubusercontent.com/felipescoutfx/darkwood-coop-launcher/main"
 $ConfigDir = Join-Path $env:APPDATA "DarkwoodCoopLauncher"
 $ConfigFile = Join-Path $ConfigDir "config.json"
+$SaveFetcherDir = Join-Path $ConfigDir "SaveFetcher"
 New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
 
 function Load-Config {
     if (Test-Path $ConfigFile) {
         try { return Get-Content $ConfigFile -Raw | ConvertFrom-Json } catch {}
     }
-    return [PSCustomObject]@{ PeerSteamId64 = "76561197998667577"; DarkwoodPath = "" }
+    return [PSCustomObject]@{ PeerSteamId64 = ""; DarkwoodPath = ""; InstalledModVersion = "" }
 }
-
-function Save-Config($cfg) {
-    $cfg | ConvertTo-Json | Set-Content $ConfigFile -Encoding UTF8
-}
+function Save-Config($cfg) { $cfg | ConvertTo-Json | Set-Content $ConfigFile -Encoding UTF8 }
 
 function Find-DarkwoodPath {
     $candidates = @(
@@ -23,21 +22,17 @@ function Find-DarkwoodPath {
         "C:\Program Files\Steam\steamapps\common\Darkwood"
     )
     foreach ($c in $candidates) { if (Test-Path "$c\Darkwood.exe") { return $c } }
-
-    # Procura em outras bibliotecas Steam via libraryfolders.vdf
     $lf = "C:\Program Files (x86)\Steam\steamapps\libraryfolders.vdf"
     if (Test-Path $lf) {
-        $matches = Select-String -Path $lf -Pattern '"path"\s*"([^"]+)"' -AllMatches
-        foreach ($m in $matches.Matches) {
-            $p = $m.Groups[1].Value -replace '\\\\', '\'
+        $m = Select-String -Path $lf -Pattern '"path"\s*"([^"]+)"' -AllMatches
+        foreach ($x in $m.Matches) {
+            $p = $x.Groups[1].Value -replace '\\\\', '\'
             $cand = Join-Path $p "steamapps\common\Darkwood"
             if (Test-Path "$cand\Darkwood.exe") { return $cand }
         }
     }
     return ""
 }
-
-$SaveFetcherDir = Join-Path $ConfigDir "SaveFetcher"
 
 function Ensure-SaveFetcher {
     $exe = Join-Path $SaveFetcherDir "SaveFetcher.exe"
@@ -53,112 +48,103 @@ function Write-BepInExConfig($darkwoodPath, $peerId) {
     $cfgDir = Join-Path $darkwoodPath "BepInEx\config"
     New-Item -ItemType Directory -Force -Path $cfgDir | Out-Null
     $cfgPath = Join-Path $cfgDir "com.felipe.darkwoodcooponline.cfg"
+    if ([string]::IsNullOrWhiteSpace($peerId)) { $peerId = "0" }
     $content = @"
 ## Settings file was created by plugin Darkwood Co-op Online v0.1.0
 ## Plugin GUID: com.felipe.darkwoodcooponline
 
 [Loopback]
-
-# Setting type: Int32
-# Default value: 7777
 LocalPort = 7777
-
-# Setting type: Int32
-# Default value: 7778
 RemotePort = 7778
 
 [Steam]
-
-# Setting type: String
-# Default value: 0
 PeerSteamId64 = $peerId
 
 [Transport]
-
-# Setting type: String
-# Default value: Loopback
 Mode = Steam
 "@
     Set-Content -Path $cfgPath -Value $content -Encoding UTF8
 }
 
+# Retorna a versao mais nova do mod publicada no repo (ou "" se nao conseguir).
+function Get-LatestModVersion {
+    try { return (Invoke-WebRequest -Uri "$RepoRaw/mod_version.txt" -UseBasicParsing).Content.Trim() }
+    catch { return "" }
+}
+
+# Sobe o texto pro 0x0.st e retorna a URL curta (ou $null em falha).
+function Send-LogToPaste($filePath) {
+    if (-not (Test-Path $filePath)) { return $null }
+    $content = Get-Content -Raw -Path $filePath
+    # Limita ao final (ultimos ~2 MB) se for enorme - o problema costuma estar no fim.
+    $max = 2000000
+    if ($content.Length -gt $max) { $content = "...(log truncado, mostrando o final)...`r`n" + $content.Substring($content.Length - $max) }
+    $boundary = [System.Guid]::NewGuid().ToString()
+    $LF = "`r`n"
+    $body = "--$boundary$LF" +
+            "Content-Disposition: form-data; name=`"file`"; filename=`"LogOutput.log`"$LF" +
+            "Content-Type: text/plain$LF$LF" +
+            $content + $LF +
+            "--$boundary--$LF"
+    $resp = Invoke-RestMethod -Uri "https://0x0.st" -Method Post -ContentType "multipart/form-data; boundary=$boundary" -Body $body -UserAgent "DarkwoodCoopLauncher"
+    return ("$resp").Trim()
+}
+
 # ---------------- UI ----------------
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Darkwood Co-op - Launcher"
-$form.Size = New-Object System.Drawing.Size(520, 640)
+$form.Size = New-Object System.Drawing.Size(540, 560)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
 
 $cfg = Load-Config
 if ([string]::IsNullOrWhiteSpace($cfg.DarkwoodPath)) { $cfg.DarkwoodPath = Find-DarkwoodPath }
+if (-not ($cfg.PSObject.Properties.Name -contains "InstalledModVersion")) {
+    $cfg | Add-Member -NotePropertyName InstalledModVersion -NotePropertyValue "" -Force
+}
 
-$y = 15
-
-$lblPeer = New-Object System.Windows.Forms.Label
-$lblPeer.Text = "SteamID64 do HOST (quem voce vai jogar com):"
-$lblPeer.Location = New-Object System.Drawing.Point(15, $y)
-$lblPeer.Size = New-Object System.Drawing.Size(480, 20)
-$form.Controls.Add($lblPeer)
-$y += 22
-
-$txtPeer = New-Object System.Windows.Forms.TextBox
-$txtPeer.Text = $cfg.PeerSteamId64
-$txtPeer.Location = New-Object System.Drawing.Point(15, $y)
-$txtPeer.Size = New-Object System.Drawing.Size(480, 24)
-$form.Controls.Add($txtPeer)
-$y += 34
-
+# Campo comum: pasta do jogo (fica no topo, fora das abas)
 $lblPath = New-Object System.Windows.Forms.Label
 $lblPath.Text = "Pasta do Darkwood:"
-$lblPath.Location = New-Object System.Drawing.Point(15, $y)
-$lblPath.Size = New-Object System.Drawing.Size(480, 20)
+$lblPath.Location = New-Object System.Drawing.Point(12, 10)
+$lblPath.Size = New-Object System.Drawing.Size(500, 18)
 $form.Controls.Add($lblPath)
-$y += 22
 
 $txtPath = New-Object System.Windows.Forms.TextBox
 $txtPath.Text = $cfg.DarkwoodPath
-$txtPath.Location = New-Object System.Drawing.Point(15, $y)
-$txtPath.Size = New-Object System.Drawing.Size(390, 24)
+$txtPath.Location = New-Object System.Drawing.Point(12, 30)
+$txtPath.Size = New-Object System.Drawing.Size(410, 24)
 $form.Controls.Add($txtPath)
 
 $btnBrowse = New-Object System.Windows.Forms.Button
 $btnBrowse.Text = "..."
-$browseY = $y - 1
-$btnBrowse.Location = New-Object System.Drawing.Point(415, $browseY)
+$btnBrowse.Location = New-Object System.Drawing.Point(430, 29)
 $btnBrowse.Size = New-Object System.Drawing.Size(80, 26)
 $btnBrowse.Add_Click({
     $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
     if ($dlg.ShowDialog() -eq "OK") { $txtPath.Text = $dlg.SelectedPath }
 })
 $form.Controls.Add($btnBrowse)
-$y += 40
 
 $lblStatus = New-Object System.Windows.Forms.Label
 $lblStatus.Text = "Pronto."
-$lblStatus.Location = New-Object System.Drawing.Point(15, $y)
-$lblStatus.Size = New-Object System.Drawing.Size(480, 60)
+$lblStatus.Location = New-Object System.Drawing.Point(12, 62)
+$lblStatus.Size = New-Object System.Drawing.Size(500, 34)
 $form.Controls.Add($lblStatus)
-$y += 65
+function Set-Status($msg) { $lblStatus.Text = $msg; $form.Refresh() }
 
-$txtOutput = New-Object System.Windows.Forms.TextBox
-$txtOutput.Multiline = $true
-$txtOutput.ScrollBars = "Vertical"
-$txtOutput.ReadOnly = $true
-$txtOutput.Location = New-Object System.Drawing.Point(15, $y)
-$txtOutput.Size = New-Object System.Drawing.Size(480, 90)
-$form.Controls.Add($txtOutput)
-$y += 96
+$tabs = New-Object System.Windows.Forms.TabControl
+$tabs.Location = New-Object System.Drawing.Point(12, 100)
+$tabs.Size = New-Object System.Drawing.Size(500, 410)
+$form.Controls.Add($tabs)
 
-function Set-Status($msg) {
-    $lblStatus.Text = $msg
-    $form.Refresh()
-}
-
-function Append-Output($line) {
-    $txtOutput.AppendText("$line`r`n")
-    $form.Refresh()
-}
+$tabMain = New-Object System.Windows.Forms.TabPage
+$tabMain.Text = "Principal"
+$tabAdv = New-Object System.Windows.Forms.TabPage
+$tabAdv.Text = "Avancado"
+$tabs.Controls.Add($tabMain)
+$tabs.Controls.Add($tabAdv)
 
 function Get-DarkwoodPathOrWarn {
     $p = $txtPath.Text.Trim()
@@ -169,144 +155,176 @@ function Get-DarkwoodPathOrWarn {
     return $p
 }
 
-# 1) Instalar BepInEx + Mod
-$btn1 = New-Object System.Windows.Forms.Button
-$btn1.Text = "1) Instalar BepInEx + Mod (primeira vez)"
-$btn1.Location = New-Object System.Drawing.Point(15, $y)
-$btn1.Size = New-Object System.Drawing.Size(480, 34)
-$btn1.Add_Click({
-    $path = Get-DarkwoodPathOrWarn
-    if (-not $path) { return }
+# ===== ABA PRINCIPAL =====
+$my = 15
+$lblIntro = New-Object System.Windows.Forms.Label
+$lblIntro.Text = "1) Instale o mod (primeira vez). 2) Abra o jogo. Para jogar juntos, o HOST" + [Environment]::NewLine +
+                 "abre o jogo, carrega o save e aperta F7. O amigo entra pelo botao 'Entrar no" + [Environment]::NewLine +
+                 "jogo' na lista de amigos da Steam - o resto e automatico."
+$lblIntro.Location = New-Object System.Drawing.Point(12, $my)
+$lblIntro.Size = New-Object System.Drawing.Size(470, 60)
+$tabMain.Controls.Add($lblIntro)
+$my += 68
+
+$btnInstall = New-Object System.Windows.Forms.Button
+$btnInstall.Text = "Instalar BepInEx + Mod (primeira vez)"
+$btnInstall.Location = New-Object System.Drawing.Point(12, $my)
+$btnInstall.Size = New-Object System.Drawing.Size(470, 36)
+$btnInstall.Add_Click({
+    $path = Get-DarkwoodPathOrWarn; if (-not $path) { return }
     try {
         Set-Status "Baixando BepInEx..."
         $zip = Join-Path $env:TEMP "bepinex-bundle.zip"
         Invoke-WebRequest -Uri "$RepoRaw/bepinex-bundle.zip" -OutFile $zip
-        Set-Status "Extraindo BepInEx..."
         Expand-Archive -Path $zip -DestinationPath $path -Force
         Set-Status "Baixando mod..."
         Invoke-WebRequest -Uri "$RepoRaw/mod/DarkwoodCoopOnline.dll" -OutFile (Join-Path $path "BepInEx\plugins\DarkwoodCoopOnline.dll")
         Write-BepInExConfig -darkwoodPath $path -peerId $txtPeer.Text.Trim()
-        Set-Status "Instalado! Agora clique em 'Sincronizar save' e depois 'Jogar'."
-    } catch {
-        Set-Status "Erro: $($_.Exception.Message)"
-    }
+        $cfg.InstalledModVersion = Get-LatestModVersion; Save-Config $cfg
+        Set-Status "Instalado! Abra o jogo pelo botao Jogar."
+    } catch { Set-Status "Erro: $($_.Exception.Message)" }
 })
-$form.Controls.Add($btn1)
-$y += 40
+$tabMain.Controls.Add($btnInstall)
+$my += 42
 
-# 2) Puxar save do host AGORA, via P2P (Steam) - NOVO: nao precisa abrir o jogo
-# antes. So funciona se o HOST ja estiver com o Darkwood aberto (o save so
-# existe carregado na memoria dele).
-$btn2 = New-Object System.Windows.Forms.Button
-$btn2.Text = "2) Puxar save do host AGORA (P2P - host precisa estar com o jogo aberto)"
-$btn2.Location = New-Object System.Drawing.Point(15, $y)
-$btn2.Size = New-Object System.Drawing.Size(480, 34)
-$btn2.Add_Click({
+$btnSyncMod = New-Object System.Windows.Forms.Button
+$btnSyncMod.Text = "Atualizar mod (baixar versao mais nova)"
+$btnSyncMod.Location = New-Object System.Drawing.Point(12, $my)
+$btnSyncMod.Size = New-Object System.Drawing.Size(470, 36)
+$btnSyncMod.Add_Click({
+    $path = Get-DarkwoodPathOrWarn; if (-not $path) { return }
+    try {
+        Set-Status "Baixando ultima versao do mod..."
+        Invoke-WebRequest -Uri "$RepoRaw/mod/DarkwoodCoopOnline.dll" -OutFile (Join-Path $path "BepInEx\plugins\DarkwoodCoopOnline.dll")
+        $cfg.InstalledModVersion = Get-LatestModVersion; Save-Config $cfg
+        Set-Status "Mod atualizado para a versao $($cfg.InstalledModVersion)."
+    } catch { Set-Status "Erro: $($_.Exception.Message)" }
+})
+$tabMain.Controls.Add($btnSyncMod)
+$my += 42
+
+$btnPlay = New-Object System.Windows.Forms.Button
+$btnPlay.Text = "Jogar (abre o Darkwood pela Steam)"
+$btnPlay.Location = New-Object System.Drawing.Point(12, $my)
+$btnPlay.Size = New-Object System.Drawing.Size(470, 40)
+$btnPlay.Add_Click({
+    $cfg.DarkwoodPath = $txtPath.Text.Trim()
+    $cfg.PeerSteamId64 = $txtPeer.Text.Trim()
+    Save-Config $cfg
+    Start-Process "steam://rungameid/274520"
+    Set-Status "Abrindo o jogo pela Steam..."
+})
+$tabMain.Controls.Add($btnPlay)
+$my += 52
+
+$lblUpdate = New-Object System.Windows.Forms.Label
+$lblUpdate.Location = New-Object System.Drawing.Point(12, $my)
+$lblUpdate.Size = New-Object System.Drawing.Size(470, 40)
+$lblUpdate.ForeColor = [System.Drawing.Color]::DarkOrange
+$tabMain.Controls.Add($lblUpdate)
+
+# ===== ABA AVANCADO =====
+$ay = 15
+$lblPeer = New-Object System.Windows.Forms.Label
+$lblPeer.Text = "SteamID64 do HOST (so p/ metodo manual / puxar save - o convite Steam nao precisa):"
+$lblPeer.Location = New-Object System.Drawing.Point(12, $ay)
+$lblPeer.Size = New-Object System.Drawing.Size(470, 18)
+$tabAdv.Controls.Add($lblPeer)
+$ay += 20
+
+$txtPeer = New-Object System.Windows.Forms.TextBox
+$txtPeer.Text = $cfg.PeerSteamId64
+$txtPeer.Location = New-Object System.Drawing.Point(12, $ay)
+$txtPeer.Size = New-Object System.Drawing.Size(470, 24)
+$tabAdv.Controls.Add($txtPeer)
+$ay += 34
+
+$btnFetch = New-Object System.Windows.Forms.Button
+$btnFetch.Text = "Puxar save do host AGORA (P2P - host com o jogo aberto)"
+$btnFetch.Location = New-Object System.Drawing.Point(12, $ay)
+$btnFetch.Size = New-Object System.Drawing.Size(470, 34)
+$btnFetch.Add_Click({
     $peerId = $txtPeer.Text.Trim()
     if ([string]::IsNullOrWhiteSpace($peerId) -or $peerId -eq "0") {
-        [System.Windows.Forms.MessageBox]::Show("Preencha o SteamID64 do host primeiro.", "Erro") | Out-Null
-        return
+        [System.Windows.Forms.MessageBox]::Show("Preencha o SteamID64 do host primeiro.", "Erro") | Out-Null; return
     }
-    $txtOutput.Clear()
+    $txtOut.Clear()
     try {
-        Set-Status "Baixando ferramenta de save (1a vez)..."
+        Set-Status "Baixando ferramenta de save..."
         $exe = Ensure-SaveFetcher
         Set-Status "Puxando save do host $peerId ..."
-        Append-Output "Chamando SaveFetcher.exe $peerId ..."
-
         $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = $exe
-        $psi.Arguments = "$peerId 25"
-        $psi.WorkingDirectory = $SaveFetcherDir
-        $psi.RedirectStandardOutput = $true
-        $psi.UseShellExecute = $false
-        $psi.CreateNoWindow = $true
+        $psi.FileName = $exe; $psi.Arguments = "$peerId 25"; $psi.WorkingDirectory = $SaveFetcherDir
+        $psi.RedirectStandardOutput = $true; $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true
         $proc = [System.Diagnostics.Process]::Start($psi)
-        while (-not $proc.StandardOutput.EndOfStream) {
-            $line = $proc.StandardOutput.ReadLine()
-            Append-Output $line
-        }
+        while (-not $proc.StandardOutput.EndOfStream) { $txtOut.AppendText($proc.StandardOutput.ReadLine() + "`r`n"); $form.Refresh() }
         $proc.WaitForExit()
-
-        if ($proc.ExitCode -eq 0) {
-            Set-Status "Save do host recebido! Clique '5) Jogar' e escolha o save novo na tela de perfis."
-        } else {
-            Set-Status "Nao deu (codigo $($proc.ExitCode)) - o host esta com o Darkwood aberto? Veja o log acima."
-        }
-    } catch {
-        Set-Status "Erro: $($_.Exception.Message)"
-    }
+        if ($proc.ExitCode -eq 0) { Set-Status "Save recebido! Abra o jogo e escolha o save na tela de perfis." }
+        else { Set-Status "Nao deu (codigo $($proc.ExitCode)) - host com o jogo aberto? Veja o log abaixo." }
+    } catch { Set-Status "Erro: $($_.Exception.Message)" }
 })
-$form.Controls.Add($btn2)
-$y += 40
+$tabAdv.Controls.Add($btnFetch)
+$ay += 40
 
-# 3) Sincronizar save (metodo antigo/manual - sempre funciona, mas o host
-# precisa ter atualizado o save-latest.zip do repo depois da ultima sessao)
-$btn2b = New-Object System.Windows.Forms.Button
-$btn2b.Text = "3) Sincronizar save (metodo antigo, via download manual)"
-$btn2b.Location = New-Object System.Drawing.Point(15, $y)
-$btn2b.Size = New-Object System.Drawing.Size(480, 34)
-$btn2b.Add_Click({
-    $confirm = [System.Windows.Forms.MessageBox]::Show(
-        "Isso vai SUBSTITUIR seu save local do Darkwood pelo save mais recente compartilhado (do host). Continuar?",
-        "Confirmar", "YesNo", "Warning")
-    if ($confirm -ne "Yes") { return }
+$btnSyncSaveOld = New-Object System.Windows.Forms.Button
+$btnSyncSaveOld.Text = "Sincronizar save (metodo antigo - download do repo)"
+$btnSyncSaveOld.Location = New-Object System.Drawing.Point(12, $ay)
+$btnSyncSaveOld.Size = New-Object System.Drawing.Size(470, 34)
+$btnSyncSaveOld.Add_Click({
+    $c = [System.Windows.Forms.MessageBox]::Show("Isso SOBRESCREVE seu save local pelo save publicado do host. Continuar?", "Confirmar", "YesNo", "Warning")
+    if ($c -ne "Yes") { return }
     try {
         Set-Status "Baixando save mais recente..."
         $zip = Join-Path $env:TEMP "save-latest.zip"
         Invoke-WebRequest -Uri "$RepoRaw/save-latest.zip" -OutFile $zip
         $saveRoot = Join-Path $env:USERPROFILE "AppData\LocalLow\Acid Wizard Studio\Darkwood"
         New-Item -ItemType Directory -Force -Path $saveRoot | Out-Null
-        Set-Status "Extraindo save..."
         Expand-Archive -Path $zip -DestinationPath $saveRoot -Force
         Set-Status "Save sincronizado."
-    } catch {
-        Set-Status "Erro: $($_.Exception.Message)"
-    }
+    } catch { Set-Status "Erro: $($_.Exception.Message)" }
 })
-$form.Controls.Add($btn2b)
-$y += 40
+$tabAdv.Controls.Add($btnSyncSaveOld)
+$ay += 40
 
-# 4) Sincronizar mod
-$btn3 = New-Object System.Windows.Forms.Button
-$btn3.Text = "4) Sincronizar mod (baixar versao mais nova)"
-$btn3.Location = New-Object System.Drawing.Point(15, $y)
-$btn3.Size = New-Object System.Drawing.Size(480, 34)
-$btn3.Add_Click({
-    $path = Get-DarkwoodPathOrWarn
-    if (-not $path) { return }
+$btnSendLog = New-Object System.Windows.Forms.Button
+$btnSendLog.Text = "Enviar log pro desenvolvedor (gera um link)"
+$btnSendLog.Location = New-Object System.Drawing.Point(12, $ay)
+$btnSendLog.Size = New-Object System.Drawing.Size(470, 34)
+$btnSendLog.Add_Click({
+    $path = $txtPath.Text.Trim()
+    $logPath = Join-Path $path "BepInEx\LogOutput.log"
+    if (-not (Test-Path $logPath)) { Set-Status "Log nao encontrado em $logPath (o jogo ja rodou com o mod?)."; return }
     try {
-        Set-Status "Baixando ultima versao do mod..."
-        Invoke-WebRequest -Uri "$RepoRaw/mod/DarkwoodCoopOnline.dll" -OutFile (Join-Path $path "BepInEx\plugins\DarkwoodCoopOnline.dll")
-        Write-BepInExConfig -darkwoodPath $path -peerId $txtPeer.Text.Trim()
-        Set-Status "Mod atualizado."
-    } catch {
-        Set-Status "Erro: $($_.Exception.Message)"
+        Set-Status "Enviando log..."
+        $url = Send-LogToPaste $logPath
+        if ([string]::IsNullOrWhiteSpace($url)) { Set-Status "Falha ao enviar o log."; return }
+        $txtOut.Text = "Link do log (mande pro desenvolvedor):`r`n$url`r`n"
+        Set-Clipboard -Value $url
+        Set-Status "Log enviado! O link foi copiado - cole e mande pro desenvolvedor."
+    } catch { Set-Status "Erro ao enviar log: $($_.Exception.Message)" }
+})
+$tabAdv.Controls.Add($btnSendLog)
+$ay += 40
+
+$txtOut = New-Object System.Windows.Forms.TextBox
+$txtOut.Multiline = $true; $txtOut.ScrollBars = "Vertical"; $txtOut.ReadOnly = $true
+$txtOut.Location = New-Object System.Drawing.Point(12, $ay)
+$txtOut.Size = New-Object System.Drawing.Size(470, 130)
+$tabAdv.Controls.Add($txtOut)
+
+# ---- Checagem de versao ao abrir ----
+$form.Add_Shown({
+    $form.Activate()
+    $latest = Get-LatestModVersion
+    if (-not [string]::IsNullOrWhiteSpace($latest)) {
+        if ([string]::IsNullOrWhiteSpace($cfg.InstalledModVersion)) {
+            $lblUpdate.Text = "Versao do mod no repo: $latest (instale/atualize pra registrar a sua)."
+        } elseif ($cfg.InstalledModVersion -ne $latest) {
+            $lblUpdate.Text = "NOVA VERSAO DO MOD ($latest) disponivel! Clique em 'Atualizar mod'. (sua: $($cfg.InstalledModVersion))"
+        } else {
+            $lblUpdate.Text = "Mod atualizado (versao $latest)."
+            $lblUpdate.ForeColor = [System.Drawing.Color]::DarkGreen
+        }
     }
 })
-$form.Controls.Add($btn3)
-$y += 40
-
-# 5) Jogar
-$btn4 = New-Object System.Windows.Forms.Button
-$btn4.Text = "5) Jogar (abre o Darkwood pela Steam)"
-$btn4.Location = New-Object System.Drawing.Point(15, $y)
-$btn4.Size = New-Object System.Drawing.Size(480, 34)
-$btn4.Add_Click({
-    $cfg.PeerSteamId64 = $txtPeer.Text.Trim()
-    $cfg.DarkwoodPath = $txtPath.Text.Trim()
-    Save-Config $cfg
-    Start-Process "steam://rungameid/274520"
-    Set-Status "Abrindo Steam... quando o jogo carregar o save, aperte F8 (cliente) ou F7 (host)."
-})
-$form.Controls.Add($btn4)
-$y += 46
-
-$lblHelp = New-Object System.Windows.Forms.Label
-$lblHelp.Text = "Depois que o jogo abrir e o save carregar: aperte F8 (voce = cliente) `r`ndentro do jogo. F10 encerra a sessao."
-$lblHelp.Location = New-Object System.Drawing.Point(15, $y)
-$lblHelp.Size = New-Object System.Drawing.Size(480, 40)
-$form.Controls.Add($lblHelp)
-
-$form.Add_Shown({ $form.Activate() })
 [void]$form.ShowDialog()
