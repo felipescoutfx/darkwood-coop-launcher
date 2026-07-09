@@ -37,6 +37,18 @@ function Find-DarkwoodPath {
     return ""
 }
 
+$SaveFetcherDir = Join-Path $ConfigDir "SaveFetcher"
+
+function Ensure-SaveFetcher {
+    $exe = Join-Path $SaveFetcherDir "SaveFetcher.exe"
+    if (Test-Path $exe) { return $exe }
+    New-Item -ItemType Directory -Force -Path $SaveFetcherDir | Out-Null
+    $zip = Join-Path $env:TEMP "savefetcher-bundle.zip"
+    Invoke-WebRequest -Uri "$RepoRaw/savefetcher-bundle.zip" -OutFile $zip
+    Expand-Archive -Path $zip -DestinationPath $SaveFetcherDir -Force
+    return $exe
+}
+
 function Write-BepInExConfig($darkwoodPath, $peerId) {
     $cfgDir = Join-Path $darkwoodPath "BepInEx\config"
     New-Item -ItemType Directory -Force -Path $cfgDir | Out-Null
@@ -73,7 +85,7 @@ Mode = Steam
 # ---------------- UI ----------------
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Darkwood Co-op - Launcher"
-$form.Size = New-Object System.Drawing.Size(520, 430)
+$form.Size = New-Object System.Drawing.Size(520, 640)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
@@ -129,8 +141,22 @@ $lblStatus.Size = New-Object System.Drawing.Size(480, 60)
 $form.Controls.Add($lblStatus)
 $y += 65
 
+$txtOutput = New-Object System.Windows.Forms.TextBox
+$txtOutput.Multiline = $true
+$txtOutput.ScrollBars = "Vertical"
+$txtOutput.ReadOnly = $true
+$txtOutput.Location = New-Object System.Drawing.Point(15, $y)
+$txtOutput.Size = New-Object System.Drawing.Size(480, 90)
+$form.Controls.Add($txtOutput)
+$y += 96
+
 function Set-Status($msg) {
     $lblStatus.Text = $msg
+    $form.Refresh()
+}
+
+function Append-Output($line) {
+    $txtOutput.AppendText("$line`r`n")
     $form.Refresh()
 }
 
@@ -168,12 +194,59 @@ $btn1.Add_Click({
 $form.Controls.Add($btn1)
 $y += 40
 
-# 2) Sincronizar save (mais recente do host)
+# 2) Puxar save do host AGORA, via P2P (Steam) - NOVO: nao precisa abrir o jogo
+# antes. So funciona se o HOST ja estiver com o Darkwood aberto (o save so
+# existe carregado na memoria dele).
 $btn2 = New-Object System.Windows.Forms.Button
-$btn2.Text = "2) Sincronizar save (baixa o mais recente do host)"
+$btn2.Text = "2) Puxar save do host AGORA (P2P - host precisa estar com o jogo aberto)"
 $btn2.Location = New-Object System.Drawing.Point(15, $y)
 $btn2.Size = New-Object System.Drawing.Size(480, 34)
 $btn2.Add_Click({
+    $peerId = $txtPeer.Text.Trim()
+    if ([string]::IsNullOrWhiteSpace($peerId) -or $peerId -eq "0") {
+        [System.Windows.Forms.MessageBox]::Show("Preencha o SteamID64 do host primeiro.", "Erro") | Out-Null
+        return
+    }
+    $txtOutput.Clear()
+    try {
+        Set-Status "Baixando ferramenta de save (1a vez)..."
+        $exe = Ensure-SaveFetcher
+        Set-Status "Puxando save do host $peerId ..."
+        Append-Output "Chamando SaveFetcher.exe $peerId ..."
+
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $exe
+        $psi.Arguments = "$peerId 25"
+        $psi.WorkingDirectory = $SaveFetcherDir
+        $psi.RedirectStandardOutput = $true
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $proc = [System.Diagnostics.Process]::Start($psi)
+        while (-not $proc.StandardOutput.EndOfStream) {
+            $line = $proc.StandardOutput.ReadLine()
+            Append-Output $line
+        }
+        $proc.WaitForExit()
+
+        if ($proc.ExitCode -eq 0) {
+            Set-Status "Save do host recebido! Clique '5) Jogar' e escolha o save novo na tela de perfis."
+        } else {
+            Set-Status "Nao deu (codigo $($proc.ExitCode)) - o host esta com o Darkwood aberto? Veja o log acima."
+        }
+    } catch {
+        Set-Status "Erro: $($_.Exception.Message)"
+    }
+})
+$form.Controls.Add($btn2)
+$y += 40
+
+# 3) Sincronizar save (metodo antigo/manual - sempre funciona, mas o host
+# precisa ter atualizado o save-latest.zip do repo depois da ultima sessao)
+$btn2b = New-Object System.Windows.Forms.Button
+$btn2b.Text = "3) Sincronizar save (metodo antigo, via download manual)"
+$btn2b.Location = New-Object System.Drawing.Point(15, $y)
+$btn2b.Size = New-Object System.Drawing.Size(480, 34)
+$btn2b.Add_Click({
     $confirm = [System.Windows.Forms.MessageBox]::Show(
         "Isso vai SUBSTITUIR seu save local do Darkwood pelo save mais recente compartilhado (do host). Continuar?",
         "Confirmar", "YesNo", "Warning")
@@ -191,12 +264,12 @@ $btn2.Add_Click({
         Set-Status "Erro: $($_.Exception.Message)"
     }
 })
-$form.Controls.Add($btn2)
+$form.Controls.Add($btn2b)
 $y += 40
 
-# 3) Sincronizar mod
+# 4) Sincronizar mod
 $btn3 = New-Object System.Windows.Forms.Button
-$btn3.Text = "3) Sincronizar mod (baixar versao mais nova)"
+$btn3.Text = "4) Sincronizar mod (baixar versao mais nova)"
 $btn3.Location = New-Object System.Drawing.Point(15, $y)
 $btn3.Size = New-Object System.Drawing.Size(480, 34)
 $btn3.Add_Click({
@@ -214,9 +287,9 @@ $btn3.Add_Click({
 $form.Controls.Add($btn3)
 $y += 40
 
-# 4) Jogar
+# 5) Jogar
 $btn4 = New-Object System.Windows.Forms.Button
-$btn4.Text = "4) Jogar (abre o Darkwood pela Steam)"
+$btn4.Text = "5) Jogar (abre o Darkwood pela Steam)"
 $btn4.Location = New-Object System.Drawing.Point(15, $y)
 $btn4.Size = New-Object System.Drawing.Size(480, 34)
 $btn4.Add_Click({
