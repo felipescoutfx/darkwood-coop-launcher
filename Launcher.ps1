@@ -15,19 +15,27 @@ New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
 # .exe novo, troca o arquivo por um processo auxiliar OCULTO (o processo atual nao pode
 # sobrescrever o proprio .exe em uso) e reabre sozinho. Falha de rede aqui NUNCA bloqueia o
 # uso - so segue com a versao atual.
-$LauncherVersion = "2026-07-10.2"
+$LauncherVersion = "2026-07-10.3"
 
 function Try-SelfUpdate {
     # TRAVA CONTRA LOOP INFINITO (achado em teste real, jul/2026): se o
     # `launcher_version.txt` publicado ficar dessincronizado do `.exe` publicado de
     # verdade (ex.: erro humano ao publicar), a instancia recem-atualizada baixaria
     # o MESMO exe de novo, veria a mesma "versao nova" e reabriria em loop infinito
-    # (visto ao vivo: ciclo de poucos segundos, tela piscando pra sempre). Fix: o
-    # processo auxiliar que reabre o launcher marca uma variavel de ambiente antes
-    # de subir a nova instancia - essa instancia NUNCA tenta se auto-atualizar de
-    # novo, não importa o que o servidor diga. Corrige o mesmo problema pra sempre,
-    # independente de eu lembrar de manter os 2 arquivos sincronizados.
-    if ($env:DWLAUNCHER_JUST_UPDATED -eq "1") { return }
+    # (visto ao vivo: ciclo de poucos segundos, tela piscando pra sempre. 1a
+    # tentativa de trava usava variavel de ambiente setada pelo `cmd` auxiliar antes
+    # de reabrir - NAO FUNCIONOU em teste real, o loop continuou; suspeita: a
+    # variavel nao chega limpa no processo novo por algum detalhe de como
+    # Start-Process/cmd propaga o ambiente pra um `start` dentro do mesmo `/c`).
+    # Fix 2, mais simples e à prova de falha: um ARQUIVO-MARCADOR com timestamp
+    # (I/O simples, sem depender de herança de ambiente entre processos). Se
+    # existir E for recente (< 2 min), pula a checagem e apaga o marcador.
+    $markerPath = Join-Path $ConfigDir ".just_updated"
+    if (Test-Path $markerPath) {
+        $age = (Get-Date) - (Get-Item $markerPath).LastWriteTime
+        Remove-Item $markerPath -Force -ErrorAction SilentlyContinue
+        if ($age.TotalMinutes -lt 2) { return }
+    }
 
     $exePath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
     $exeName = [System.IO.Path]::GetFileNameWithoutExtension($exePath)
@@ -53,13 +61,17 @@ function Try-SelfUpdate {
             return
         }
 
-        # cmd oculto: espera este processo soltar o arquivo, troca, reabre JA MARCADO
-        # (variavel de ambiente) pra nunca mais tentar se auto-atualizar. Nada visivel.
-        $helperArgs = "/c timeout /t 1 /nobreak >nul & move /y `"$newExePath`" `"$exePath`" >nul & set DWLAUNCHER_JUST_UPDATED=1 & start `"`" `"$exePath`""
+        # Marca o arquivo ANTES de disparar o helper - a proxima instancia (recem
+        # atualizada) le e apaga isso no proprio Try-SelfUpdate, acima.
+        Set-Content -Path $markerPath -Value (Get-Date).Ticks -Encoding UTF8
+
+        # cmd oculto: espera este processo soltar o arquivo, troca, reabre. Nada visivel.
+        $helperArgs = "/c timeout /t 1 /nobreak >nul & move /y `"$newExePath`" `"$exePath`" >nul & start `"`" `"$exePath`""
         Start-Process -FilePath "cmd.exe" -ArgumentList $helperArgs -WindowStyle Hidden
         exit
     } catch {
         if (Test-Path "$exePath.new") { Remove-Item "$exePath.new" -Force -ErrorAction SilentlyContinue }
+        if (Test-Path $markerPath) { Remove-Item $markerPath -Force -ErrorAction SilentlyContinue }
     }
 }
 Try-SelfUpdate
