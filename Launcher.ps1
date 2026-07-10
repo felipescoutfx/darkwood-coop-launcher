@@ -15,9 +15,20 @@ New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
 # .exe novo, troca o arquivo por um processo auxiliar OCULTO (o processo atual nao pode
 # sobrescrever o proprio .exe em uso) e reabre sozinho. Falha de rede aqui NUNCA bloqueia o
 # uso - so segue com a versao atual.
-$LauncherVersion = "2026-07-10.1"
+$LauncherVersion = "2026-07-10.2"
 
 function Try-SelfUpdate {
+    # TRAVA CONTRA LOOP INFINITO (achado em teste real, jul/2026): se o
+    # `launcher_version.txt` publicado ficar dessincronizado do `.exe` publicado de
+    # verdade (ex.: erro humano ao publicar), a instancia recem-atualizada baixaria
+    # o MESMO exe de novo, veria a mesma "versao nova" e reabriria em loop infinito
+    # (visto ao vivo: ciclo de poucos segundos, tela piscando pra sempre). Fix: o
+    # processo auxiliar que reabre o launcher marca uma variavel de ambiente antes
+    # de subir a nova instancia - essa instancia NUNCA tenta se auto-atualizar de
+    # novo, não importa o que o servidor diga. Corrige o mesmo problema pra sempre,
+    # independente de eu lembrar de manter os 2 arquivos sincronizados.
+    if ($env:DWLAUNCHER_JUST_UPDATED -eq "1") { return }
+
     $exePath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
     $exeName = [System.IO.Path]::GetFileNameWithoutExtension($exePath)
     # Rodando via "powershell.exe Launcher.ps1" direto (dev) em vez do .exe compilado -
@@ -33,8 +44,18 @@ function Try-SelfUpdate {
         $newExePath = "$exePath.new"
         Invoke-WebRequest -Uri "$RepoRaw/DarkwoodCoopLauncher.exe" -OutFile $newExePath -UseBasicParsing
 
-        # cmd oculto: espera este processo soltar o arquivo, troca, reabre. Nada visivel.
-        $helperArgs = "/c timeout /t 1 /nobreak >nul & move /y `"$newExePath`" `"$exePath`" >nul & start `"`" `"$exePath`""
+        # Segunda trava: se o arquivo baixado for IDENTICO (mesmo tamanho) ao atual,
+        # nao é uma atualizacao de verdade - nao troca nem reabre, so ignora.
+        $curSize = (Get-Item $exePath).Length
+        $newSize = (Get-Item $newExePath).Length
+        if ($curSize -eq $newSize) {
+            Remove-Item $newExePath -Force -ErrorAction SilentlyContinue
+            return
+        }
+
+        # cmd oculto: espera este processo soltar o arquivo, troca, reabre JA MARCADO
+        # (variavel de ambiente) pra nunca mais tentar se auto-atualizar. Nada visivel.
+        $helperArgs = "/c timeout /t 1 /nobreak >nul & move /y `"$newExePath`" `"$exePath`" >nul & set DWLAUNCHER_JUST_UPDATED=1 & start `"`" `"$exePath`""
         Start-Process -FilePath "cmd.exe" -ArgumentList $helperArgs -WindowStyle Hidden
         exit
     } catch {
