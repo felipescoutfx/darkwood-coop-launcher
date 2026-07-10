@@ -3,6 +3,11 @@ Add-Type -AssemblyName System.Drawing
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $RepoRaw = "https://raw.githubusercontent.com/felipescoutfx/darkwood-coop-launcher/main"
+# O .exe do launcher em si NAO fica commitado na branch (pesaria o repo a cada
+# versao) - vive só como asset de GitHub Release. "latest/download/..." é uma
+# URL ESTAVEL da propria Github que sempre aponta pro asset da release mais
+# recente, sem precisar saber o numero da versao.
+$LauncherExeUrl = "https://github.com/felipescoutfx/darkwood-coop-launcher/releases/latest/download/DarkwoodCoopLauncher.exe"
 $ConfigDir = Join-Path $env:APPDATA "DarkwoodCoopLauncher"
 $ConfigFile = Join-Path $ConfigDir "config.json"
 $SaveFetcherDir = Join-Path $ConfigDir "SaveFetcher"
@@ -15,7 +20,7 @@ New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
 # .exe novo, troca o arquivo por um processo auxiliar OCULTO (o processo atual nao pode
 # sobrescrever o proprio .exe em uso) e reabre sozinho. Falha de rede aqui NUNCA bloqueia o
 # uso - so segue com a versao atual.
-$LauncherVersion = "2026-07-10.3"
+$LauncherVersion = "2026-07-10.4"
 
 function Try-SelfUpdate {
     # TRAVA CONTRA LOOP INFINITO (achado em teste real, jul/2026): se o
@@ -50,7 +55,7 @@ function Try-SelfUpdate {
 
     try {
         $newExePath = "$exePath.new"
-        Invoke-WebRequest -Uri "$RepoRaw/DarkwoodCoopLauncher.exe" -OutFile $newExePath -UseBasicParsing
+        Invoke-WebRequest -Uri $LauncherExeUrl -OutFile $newExePath -UseBasicParsing
 
         # Segunda trava: se o arquivo baixado for IDENTICO (mesmo tamanho) ao atual,
         # nao é uma atualizacao de verdade - nao troca nem reabre, so ignora.
