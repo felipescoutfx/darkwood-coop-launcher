@@ -8,6 +8,41 @@ $ConfigFile = Join-Path $ConfigDir "config.json"
 $SaveFetcherDir = Join-Path $ConfigDir "SaveFetcher"
 New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
 
+# ---------- Auto-atualizacao do PROPRIO launcher (pedido do usuario, jul/2026) ----------
+# Distribuido como .exe unico (compilado com PS2EXE) - sem bat, sem janela de console/
+# PowerShell visivel (assusta usuario leigo). Antes de mostrar a janela principal, confere
+# se ha uma versao mais nova publicada (launcher_version.txt no repo) e, se houver, baixa o
+# .exe novo, troca o arquivo por um processo auxiliar OCULTO (o processo atual nao pode
+# sobrescrever o proprio .exe em uso) e reabre sozinho. Falha de rede aqui NUNCA bloqueia o
+# uso - so segue com a versao atual.
+$LauncherVersion = "2026-07-10.1"
+
+function Try-SelfUpdate {
+    $exePath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+    $exeName = [System.IO.Path]::GetFileNameWithoutExtension($exePath)
+    # Rodando via "powershell.exe Launcher.ps1" direto (dev) em vez do .exe compilado -
+    # nao ha o que auto-atualizar (nao existe .exe pra trocar).
+    if ($exeName -ieq "powershell" -or $exeName -ieq "pwsh") { return }
+
+    try {
+        $latest = (Invoke-WebRequest -Uri "$RepoRaw/launcher_version.txt" -UseBasicParsing -TimeoutSec 5).Content.Trim()
+    } catch { return }
+    if (-not $latest -or $latest -eq $LauncherVersion) { return }
+
+    try {
+        $newExePath = "$exePath.new"
+        Invoke-WebRequest -Uri "$RepoRaw/DarkwoodCoopLauncher.exe" -OutFile $newExePath -UseBasicParsing
+
+        # cmd oculto: espera este processo soltar o arquivo, troca, reabre. Nada visivel.
+        $helperArgs = "/c timeout /t 1 /nobreak >nul & move /y `"$newExePath`" `"$exePath`" >nul & start `"`" `"$exePath`""
+        Start-Process -FilePath "cmd.exe" -ArgumentList $helperArgs -WindowStyle Hidden
+        exit
+    } catch {
+        if (Test-Path "$exePath.new") { Remove-Item "$exePath.new" -Force -ErrorAction SilentlyContinue }
+    }
+}
+Try-SelfUpdate
+
 function Load-Config {
     if (Test-Path $ConfigFile) {
         try { return Get-Content $ConfigFile -Raw | ConvertFrom-Json } catch {}

@@ -4,13 +4,17 @@ Instalador/atualizador do mod de co-op online do Darkwood (dev/teste entre amigo
 
 ## Primeira vez
 
-1. Baixe este repositório (botão verde **Code → Download ZIP**) e extraia em qualquer pasta.
-2. Abra **"Iniciar Launcher.bat"** (duplo clique).
-3. Confira a **Pasta do Darkwood** no topo (o launcher tenta achar sozinho).
-4. Na aba **Principal**, clique **Instalar BepInEx + Mod**.
-5. Clique **Jogar**.
+1. Baixe **[DarkwoodCoopLauncher.exe](https://github.com/felipescoutfx/darkwood-coop-launcher/raw/main/DarkwoodCoopLauncher.exe)** (um arquivo só — sem zip, sem instalar nada) e dê duplo clique.
+   - O Windows/SmartScreen pode avisar "editor desconhecido" (o `.exe` não é assinado digitalmente) — clique em **Mais informações → Executar assim mesmo**. É esperado num programa de teste entre amigos, não é vírus.
+2. Confira a **Pasta do Darkwood** no topo (o launcher tenta achar sozinho).
+3. Na aba **Principal**, clique **Instalar BepInEx + Mod**.
+4. Clique **Jogar**.
 
 **Host e cliente usam o mesmo launcher** — os dois instalam o mod do mesmo jeito.
+
+O launcher se **atualiza sozinho**: toda vez que abre, confere se tem uma versão nova
+publicada aqui e, se tiver, baixa e reabre automaticamente — nunca precisa baixar o `.exe`
+nem o repositório de novo por causa de uma atualização do launcher em si.
 
 ## Como jogar juntos (fluxo novo, por convite da Steam)
 
