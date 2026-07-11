@@ -20,7 +20,7 @@ New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
 # .exe novo, troca o arquivo por um processo auxiliar OCULTO (o processo atual nao pode
 # sobrescrever o proprio .exe em uso) e reabre sozinho. Falha de rede aqui NUNCA bloqueia o
 # uso - so segue com a versao atual.
-$LauncherVersion = "2026-07-11.1"
+$LauncherVersion = "2026-07-11.2"
 
 function Try-SelfUpdate {
     # TRAVA CONTRA LOOP INFINITO (achado em teste real, jul/2026): se o
@@ -556,6 +556,12 @@ $btnSyncMod.Add_Click({
         Invoke-WebRequest -Uri "$RepoRaw/mod/DarkwoodCoopOnline.dll" -OutFile (Join-Path $path "BepInEx\plugins\DarkwoodCoopOnline.dll")
         $cfg.InstalledModVersion = Get-LatestModVersion; Save-Config $cfg
         Set-Status ((T 'ModUpdated') -f $cfg.InstalledModVersion)
+        # Pedido do usuario (jul/2026): confirmacao so na barra de status (embaixo,
+        # discreta) passava despercebida - o label grande (avisa versao nova) agora
+        # tambem confirma na hora, sem precisar reabrir o launcher pra ver que deu certo.
+        $lblUpdate.ForeColor = $ColAccent
+        $lblUpdate.Font = $FontNav
+        $lblUpdate.Text = (T 'ModUpdated') -f $cfg.InstalledModVersion
     } catch { Set-Status ((T 'ErrorPrefix') -f $_.Exception.Message) }
 })
 $panelMain.Controls.Add($btnSyncMod)
@@ -617,7 +623,7 @@ $btnFetch.Add_Click({
         $exe = Ensure-SaveFetcher
         Set-Status ((T 'FetchingSave') -f $peerId)
         $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = $exe; $psi.Arguments = "$peerId 25"; $psi.WorkingDirectory = $SaveFetcherDir
+        $psi.FileName = $exe; $psi.Arguments = "$peerId 60"; $psi.WorkingDirectory = $SaveFetcherDir
         $psi.RedirectStandardOutput = $true; $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true
         $proc = [System.Diagnostics.Process]::Start($psi)
         while (-not $proc.StandardOutput.EndOfStream) { $txtOut.AppendText($proc.StandardOutput.ReadLine() + "`r`n"); $form.Refresh() }
