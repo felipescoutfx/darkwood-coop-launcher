@@ -1,3 +1,5 @@
+🇺🇸 [English version](README.en.md)
+
 # Darkwood Co-op — Launcher
 
 Instalador/atualizador do mod de co-op online do Darkwood (dev/teste entre amigos).
@@ -15,6 +17,9 @@ Instalador/atualizador do mod de co-op online do Darkwood (dev/teste entre amigo
 O launcher se **atualiza sozinho**: toda vez que abre, confere se tem uma versão nova
 publicada aqui e, se tiver, baixa e reabre automaticamente — nunca precisa baixar o `.exe`
 nem o repositório de novo por causa de uma atualização do launcher em si.
+
+Prefere o launcher em inglês? Tem um botão de idioma (**PT/EN**) na barra de título — clique
+e ele reabre no outro idioma.
 
 ## Como jogar juntos (fluxo novo, por convite da Steam)
 
