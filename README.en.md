@@ -38,11 +38,8 @@ version** has been published. If it does, click **Update mod**.
 
 ## Advanced tab (only if you need it)
 
-- **Host's SteamID64** + **Pull host's save NOW (P2P)**: downloads the host's save BEFORE
-  opening the game (the host needs to have Darkwood open). Useful if you don't want to use
-  the Steam invite.
-- **Sync save (old method)**: downloads a save manually published to the repo,
-  OVERWRITING your own. Only use this if the other methods don't work.
+- **Host's SteamID64**: only used by the old manual connect method (F7/F8 directly in
+  the game) - the Steam invite and the menu's HOST/JOIN buttons don't need this.
 - **Send log to developer**: if something goes wrong, this button uploads the game log and
   generates a **link** (copied automatically). Send that link to the developer so they can
   see what happened.

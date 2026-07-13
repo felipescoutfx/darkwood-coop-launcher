@@ -38,11 +38,8 @@ mod** publicada. Se avisar, clique **Atualizar mod**.
 
 ## Aba Avançado (só se precisar)
 
-- **SteamID64 do host** + **Puxar save do host AGORA (P2P)**: baixa o save do host ANTES de
-  abrir o jogo (o host precisa estar com o Darkwood aberto). Útil se não quiser usar o
-  convite da Steam.
-- **Sincronizar save (método antigo)**: baixa um save publicado manualmente no repo,
-  SOBRESCREVENDO o seu. Só use se os outros métodos não servirem.
+- **SteamID64 do host**: só usado pelo método manual antigo de conectar (F7/F8 direto no
+  jogo) - o convite da Steam e os botões HOST/JOIN do menu não precisam disso.
 - **Enviar log pro desenvolvedor**: se algo der errado, este botão sobe o log do jogo e gera
   um **link** (copiado automaticamente). Mande esse link pro desenvolvedor pra ele ver o que
   aconteceu.
