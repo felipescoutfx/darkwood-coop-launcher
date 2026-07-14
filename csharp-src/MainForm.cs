@@ -62,6 +62,7 @@ namespace DarkwoodCoopLauncher
             BackColor = Theme.Bg;
             MaximizeBox = false;
             ShowInTaskbar = true;
+            try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
 
             Paint += (s, e) =>
             {

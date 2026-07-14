@@ -13,7 +13,7 @@ namespace DarkwoodCoopLauncher
     // com a versao atual.
     public static class SelfUpdater
     {
-        public const string LauncherVersion = "2026-07-13.1";
+        public const string LauncherVersion = "2026-07-13.2";
         private const string RepoRaw = "https://raw.githubusercontent.com/felipescoutfx/darkwood-coop-launcher/main";
         private const string LauncherExeUrl = "https://github.com/felipescoutfx/darkwood-coop-launcher/releases/latest/download/DarkwoodCoopLauncher.exe";
 

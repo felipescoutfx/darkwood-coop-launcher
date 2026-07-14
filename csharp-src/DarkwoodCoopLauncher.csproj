@@ -11,7 +11,7 @@
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
     <LangVersion>7.3</LangVersion>
-    <ApplicationIcon></ApplicationIcon>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
     <!-- .exe unico e autossuficiente (sem dependencia externa nenhuma) - mesmo
          objetivo do PS2EXE que ele substitui: baixar 1 arquivo e rodar, sem
          instalar nada. Por isso JSON/multipart sao escritos a mao (ver Config.cs/
