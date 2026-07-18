@@ -53,16 +53,14 @@ version** has been published. If it does, click **Update mod**.
   dropped items, traps, downed/revive state.
 - Per-player character save (inventory/health by SteamID) is new and lightly tested.
 
-## Known issues (under investigation)
+## Recently fixed (pending more testing)
 
-Things that don't yet show up / work correctly for the OTHER player (the one who didn't
-perform the action):
-
-1. **Flare** - the packet reaches the other side, but the flare isn't created on their
-   screen. Diagnostics were added in this version to pin down the exact cause.
-2. **Thrown rock** - doesn't show up for the other player when thrown/landed.
-3. **Thrown meat** - showed up as a generic "bag" instead of meat for the other player
-   (content fix applied; the visual trajectory was reverted because it was causing a worse
-   bug).
-4. **Lantern light** - a player's lantern light wasn't showing around their character for
-   whoever was with them. New fix applied in this version (to be confirmed in testing).
+- **Lantern light** - a player's lantern glow now shows around their character for the other
+  player (CONFIRMED working in testing).
+- **Thrown flare, rock and meat** - didn't show up for the other player because the mod tried
+  to recreate the object by name (wrong path, returned null). It now resolves the prefab by
+  item type, the same way the game does. The flare also landed "right in front, as if thrown
+  without force" for the other player; it now uses the real landing position.
+- **Morning time-stop when joining mid-morning** - when the client joined during a morning
+  where time was frozen (end-of-night event), their clock kept running and could desync. The
+  client now enters the same time-stop as the host.
