@@ -52,3 +52,16 @@ mod** publicada. Se avisar, clique **Atualizar mod**.
   partida (trabalho futuro). O que já sincroniza ao vivo: posição, inimigos, portas, móveis,
   containers, itens largados, armadilhas, estado de "caído"/reanimar.
 - Save de personagem por jogador (inventário/vida por SteamID) é novo e pouco testado.
+
+## Problemas conhecidos (em investigação)
+
+Itens que ainda não aparecem/funcionam corretamente pro OUTRO jogador (quem não fez a ação):
+
+1. **Flare (sinalizador)** - o pacote chega no outro lado, mas o flare não é criado na tela
+   dele. Diagnóstico adicionado nesta versão pra achar a causa exata.
+2. **Pedra arremessada** - não aparece pro outro jogador ao ser jogada/pousar.
+3. **Carne arremessada** - aparecia como uma "bolsa" genérica em vez de carne pro outro
+   jogador (correção do conteúdo aplicada; a trajetória visual foi revertida por estar
+   causando um bug pior).
+4. **Luz da lanterna** - a luz da lanterna de um jogador não aparecia em volta do personagem
+   dele pra quem estava junto. Correção nova aplicada nesta versão (a confirmar em teste).

@@ -52,3 +52,17 @@ version** has been published. If it does, click **Update mod**.
   (future work). What already syncs live: position, enemies, doors, furniture, containers,
   dropped items, traps, downed/revive state.
 - Per-player character save (inventory/health by SteamID) is new and lightly tested.
+
+## Known issues (under investigation)
+
+Things that don't yet show up / work correctly for the OTHER player (the one who didn't
+perform the action):
+
+1. **Flare** - the packet reaches the other side, but the flare isn't created on their
+   screen. Diagnostics were added in this version to pin down the exact cause.
+2. **Thrown rock** - doesn't show up for the other player when thrown/landed.
+3. **Thrown meat** - showed up as a generic "bag" instead of meat for the other player
+   (content fix applied; the visual trajectory was reverted because it was causing a worse
+   bug).
+4. **Lantern light** - a player's lantern light wasn't showing around their character for
+   whoever was with them. New fix applied in this version (to be confirmed in testing).
